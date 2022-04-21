@@ -1,26 +1,170 @@
 import socket
 import argparse
+import pickle
+import base64
+import os
+import threading
+import sys
+import secrets
+
+from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
+from cryptography.hazmat.primitives.asymmetric import rsa, padding
+from cryptography.hazmat.primitives import hashes, serialization
+from cryptography.exceptions import InvalidSignature
+
+sys.path.append("/home/jude/Mtech/Sem_2/NS/Project/src/tree_linkable")
+
+from utils import check_commit
+
+AES_KEY = secrets.token_bytes(32)
+CBC_IV = secrets.token_bytes(16)
+RSA_KEY_SIZE = 2048
+
+SIG_SIZE = 32
+SRC_SIZE = RSA_KEY_SIZE / 8
 
 
-class Platform():
-    def init():
-        # Generate keys
-        pass
-
-    def generate_pd(commit, userid):
-        pass
-
-    def report_msg(fd):
-        pass
-
+class Platform_Scheme1():
+    
+    def __init__(self, aes_key, cbc_iv, rsa_key_size):
         
+        # For encrypting source-id and metadata
+        self.cipher = Cipher(algorithms.AES(aes_key), modes.CBC(cbc_iv))
+
+        # For signing encryption and commits
+        self.private_key = rsa.generate_private_key(
+                            public_exponent=65537,
+                            key_size=rsa_key_size,
+                        )
+        self.public_key = self.private_key.public_key()
+
+        with open("platform_pub_key.pem", 'wb') as f:
+            pem =  self.public_key.public_bytes(
+                                    encoding=serialization.Encoding.PEM,
+                                    format=serialization.PublicFormat.SubjectPublicKeyInfo
+                                    )
+
+            f.write(pem)
+
+        self.users = set()
+
+        return
+
+
+    def register_user(self, user_id):
+        
+        self.users.add(user_id)
+
+
+    def generate_pd(self, commit, userid, md=None):
+
+        # Prepare tag
+        encryptor = self.cipher.encryptor()
+        userid = base64.b64encode(pickle.dumps(userid))
+        md = base64.b64encode(pickle.dumps(md))
+        s = userid + b"|" + md
+        src = encryptor.update(s) + encryptor.finalize()
+
+        # Sign tag and commit
+        sigma = self.private_key(
+                            commit + src,
+                            padding.PSS(
+                                mgf=padding.MGF1(hashes.SHA256()),
+                                salt_length=padding.PSS.MAX_LENGTH),
+                            hashes.SHA256())
+
+        return (sigma, src)
+
+
+    def report_msg(self, fd, m):
+        sigma, src, commit, r = fd
+
+        if not check_commit(commit, m, r):
+            return None
+
+        try:
+            self.public_key.verify(
+                        sigma,
+                        commit + src,
+                        padding.PSS(
+                            mgf=padding.MGF1(hashes.SHA256()),
+                            salt_length=padding.PSS.MAX_LENGTH
+                                    ),
+                        hashes.SHA256()
+                                ) 
+        except InvalidSignature:
+            return None
+
+        decryptor = self.cipher.decryptor()
+
+        pt = decryptor.update(src) + decryptor.finalize()
+
+        pt = pt.decode("ascii").split("|")
+
+        userid = pickle.loads(base64.b64decode(pt[0]))
+        md = pickle.loads(base64.b64decode(pt[1]))
+
+        return userid, md
+
+
+def handle_user_scheme1(conn, addr, platform):
+    
+
+    data = conn.recv(2048)
+    code, rest = data[:3], data[3:]
+    
+    if code == b'101':
+        userid = rest[0]
+        platform.register_user(userid)
+
+    else:
+        s = (f"Expected code 101, Received {code.encode('ascii')}: Failed to register user. Closing Connection")
+        msg = b'999' + s.encode('ascii')
+        conn.sendall(msg)
+
+        conn.close()
+        
+        return None
+
+    while True:
+
+        data = conn.recv(2048)
+
+        if not data:
+            print(f"{userid} at {addr} has disconnected.")
+            break
+
+        code, rest = data[:3], data[3:]
+
+        if code == b'102':
+            commit = rest[0]
+            pd = platform.generate_pd(commit, userid)
+            pd = pickle.dumps(pd)
+            msg = b'103' + pd
+            # Send to Receiver
+            conn.sendall(msg)
+
+        elif code == b'999':
+            print(f"Received Code 999: {rest}")
+        
+        else:
+            s = f"Expected code 101, Received {code.encode('ascii')}"
+            msg = b'999' + s.encode('ascii')
+            conn.sendall(msg)
+
+
 def main(port, file):
 
     print("Starting Platform ...")
+    
+    platform = Platform_Scheme1(AES_KEY, CBC_IV, RSA_KEY_SIZE)
+    
     HOST = ''                 
+    
     print("Press ctrl+c to exit...")
     
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+        s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         s.bind((HOST, port))
         # socket_killer = GracefulSocketKiller(s)
         print(f"Start listening on port: {port}")
@@ -28,6 +172,11 @@ def main(port, file):
         while True:
             s.listen(2)
             conn, addr = s.accept()
+
+            print(f"Connected to {addr}")
+
+            t = threading.Thread(target=handle_user_scheme1, args=(conn, addr, platform))
+            t.start()
 
 
 if __name__ == "__main__":
