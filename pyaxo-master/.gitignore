@@ -1,0 +1,6 @@
+*.pyc
+tests/axolotl.db
+.idea/
+build/
+dist/
+pyaxo.egg-info/
