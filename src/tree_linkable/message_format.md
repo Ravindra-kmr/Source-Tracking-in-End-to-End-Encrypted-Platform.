@@ -39,8 +39,28 @@
    3. Info:
       1. pd
    4. Msg-Size: SIG-SIZE + SRC_SIZE + 3
+
+6. Code 105:
+   1. Sender:
+      1. User.
+   2. Receiver:
+      1. Platform
+   3. Info:
+      1. Reporting a message to platform.
+   4. Msg-size:
+      1. fd  + size(msg)
+
+6. Code 106:
+   1. Sender:
+      1. Platform.
+   2. Receiver:
+      1. User
+   3. Info:
+      1. Return source id.
+   4. Msg-size:
+      1. size(userid)
    
-6. Code 999:
+7. Code 999:
    1. Sender:
       1. Any
    2. Receiver:

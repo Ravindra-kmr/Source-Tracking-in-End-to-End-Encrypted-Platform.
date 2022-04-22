@@ -1,7 +1,8 @@
 from curses.ascii import SI
 import socket
 import argparse
-import secrets
+# import secrets
+import os
 import pickle
 
 from cryptography.hazmat.primitives import serialization
@@ -9,7 +10,8 @@ from cryptography.hazmat.primitives import serialization
 from utils import make_commit, check_commit, verify_sign, R_SIZE, COMMIT_SIZE
 from platform import SRC_SIZE, SIG_SIZE 
 
-BOT = secrets.token_bytes(SIG_SIZE + SRC_SIZE + COMMIT_SIZE + R_SIZE)
+BOT = os.urandom(SIG_SIZE + SRC_SIZE + COMMIT_SIZE + R_SIZE)
+# BOT = secrets.token_bytes(SIG_SIZE + SRC_SIZE + COMMIT_SIZE + R_SIZE)
 
 
 class User():
@@ -105,6 +107,18 @@ class User():
 
     def message_fds(self):
         return self.msg_fd_map
+
+    def report(self, m, fd):
+        self.platform_soc.sendall(b'105' + fd + m)
+
+        data = self.platform_soc.recv(2048)
+        code = data[:3]
+        if code != b'106':
+            # print(f"Received Code: {code}, Expected Code: 104")
+            print "Received Code:{0}, Expected Code: 106".format(code)
+        
+        return data[3:]
+
 
         
 

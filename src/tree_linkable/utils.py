@@ -1,4 +1,5 @@
-import secrets
+# import secrets
+import os
 
 from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
 from cryptography.hazmat.primitives.asymmetric import rsa, padding
@@ -17,7 +18,8 @@ def check_commit(commit, m, r):
 
 def make_commit(m):
     
-    r = secrets.token_bytes(R_SIZE)
+    # r = secrets.token_bytes(R_SIZE)
+    r = os.urandom(R_SIZE)
     hasher = hashes.Hash(hashes.SHA256())
 
     commit = hasher.update(m + r).finalize()

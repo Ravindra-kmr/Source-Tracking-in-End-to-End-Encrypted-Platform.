@@ -5,7 +5,8 @@ import base64
 import os
 import threading
 import sys
-import secrets
+# import secrets
+import os
 
 from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
 from cryptography.hazmat.primitives.asymmetric import rsa, padding
@@ -14,15 +15,18 @@ from cryptography.exceptions import InvalidSignature
 
 sys.path.append("/home/jude/Mtech/Sem_2/NS/Project/src/tree_linkable")
 
-from utils import check_commit, COMMIT_SIZE
+from utils import check_commit, COMMIT_SIZE, R_SIZE
 
-AES_KEY = secrets.token_bytes(32)
-CBC_IV = secrets.token_bytes(16)
+# AES_KEY = secrets.token_bytes(32)
+# CBC_IV = secrets.token_bytes(16)
+AES_KEY = os.urandom(32)
+CBC_IV = os.urandom(16)
 RSA_KEY_SIZE = 2048
 
 SIG_SIZE = 32
 SRC_SIZE = RSA_KEY_SIZE / 8
 
+FD_SIZE = SIG_SIZE + SRC_SIZE + COMMIT_SIZE + R_SIZE
 
 class Platform_Scheme1():
     
@@ -152,6 +156,12 @@ def handle_user_scheme1(conn, addr, platform):
             sigma, src = msgId_pd_map[msg_id]
             msg = b'104' + sigma + src 
             # Send to Receiver
+            conn.sendall(msg)
+        
+        elif code == b'105':
+            fd = rest[0][:]
+            source_id = platform.report_msg()
+            msg = b'106' + source_id
             conn.sendall(msg)
 
         elif code == b'999':
