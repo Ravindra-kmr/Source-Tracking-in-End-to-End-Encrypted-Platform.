@@ -15,6 +15,7 @@ from time import sleep
 from getpass import getpass
 from binascii import a2b_base64 as a2b
 from binascii import b2a_base64 as b2a
+import os
 
 """
 Standalone chat script using libsodium for encryption with the Axolotl
@@ -52,6 +53,9 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program. If not, see <http://www.gnu.org/licenses/>.
 """
+pwd = os.getcwd()
+print pwd
+sys.path.append(pwd)
 
 from tree_linkable.user import User
 
@@ -160,6 +164,8 @@ def receiveThread(sock, user, stdscr, input_win, output_win,convdict):
                 sender=conv_list[0].strip()
                 conv_list=conv_list[1].split(':',1)
                 msgid=int(conv_list[0].strip())
+                if 'Fwd:' in conv_list[1]:
+                    conv_list = (conv_list[1].split('Fwd:',1)).strip()
                 if sender not in convdict.keys():
                     convdict[sender] = {}
                 convdict[sender][msgid]=conv_list[1].strip()
@@ -176,6 +182,7 @@ def receiveThread(sock, user, stdscr, input_win, output_win,convdict):
 
 def chatThread(sock, user):
     msgid = 1
+    unique_msgid = ''
     if os.path.isfile(NICK+'.db'):
         senderDB=open(NICK+'.db','r')
         convdict = json.load(senderDB)
@@ -205,7 +212,7 @@ def chatThread(sock, user):
             if 'Fwd:' in data:
                 data_list = data.split('Fwd:',1)
                 header = data_list[0]
-                data_list = data_list[1].split(',',1)
+                data_list = data_list[1].split(':',1)
                 originalauthor = data_list[0].strip()
                 msgtosendID = data_list[1].strip()
                 if originalauthor in convdict.keys():
@@ -231,7 +238,26 @@ def chatThread(sock, user):
                     sleep(0.01) # write time for axo db
                     lock.release()
                     continue;
-
+            if 'Report:' in data:
+                data_list = data.split('Report:',1)
+                header = data_list[0]
+                data_list = data_list[1].split(':',1)
+                fwdauthor = data_list[0].strip()
+                fwdmsgID = data_list[1].strip()
+                report_unique_msgid = fwdauthor+fwdmsgID;
+                actualmsg = convdict[fwdauthor][fwdmsgID]
+                fd = msgId_fd_map[report_unique_msgid]
+                source_id = user.report(actualmsg, fd)
+                print source_id
+                input_win.clear()
+                input_win.addstr(NICK+':> '+ str(msgid)+': ')
+                input_win.move(0, len(NICK)+len(':> '+ str(msgid)+': '))
+                input_win.cursyncup()
+                input_win.noutrefresh()
+                screen_needs_update = True
+                sleep(0.01) # write time for axo db
+                lock.release()
+                continue;
             input_win.clear()
             input_win.addstr(NICK+':> '+ str(msgid)+': ')
             output_win.addstr(data.replace('\n', '') + '\n', curses.color_pair(3))
@@ -243,10 +269,11 @@ def chatThread(sock, user):
             data = data.replace('\n', '') + '\n'
             try:
                 # Generate Commmit and send to platform.
-                if 'Fwd' in data:
-                    user.forward_msg(data, msgid)
+                unique_msgid = NICK+":"+str(msgid);
+                if 'Fwd:' in data:
+                    user.forward_msg(data, unique_msgid)
                 else:
-                    user.author_msg(data, msgid)
+                    user.author_msg(data, unique_msgid)
 
                 sock.send(a.encrypt(data) + 'EOP')
                 msgid+=1
@@ -282,7 +309,7 @@ if __name__ == '__main__':
     platform_pub_key_file = (raw_input("Enter platform public key file: "))
 
     user = User(NICK, platform_ip, platform_port, platform_pub_key_file)
-    print(f"Connected to Source-Tracking Platform")
+    print "Connected to Source-Tracking Platform"
    
     while True:
         try:
