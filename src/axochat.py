@@ -53,6 +53,10 @@ You should have received a copy of the GNU General Public License
 along with this program. If not, see <http://www.gnu.org/licenses/>.
 """
 
+from tree_linkable.user import User
+
+msgId_fd_map = {} 
+
 @contextmanager
 def socketcontext(*args, **kwargs):
     s = socket.socket(*args, **kwargs)
@@ -127,7 +131,7 @@ def usage():
     print ' -c: start a chat in client mode'
     exit()
 
-def receiveThread(sock, stdscr, input_win, output_win,convdict):
+def receiveThread(sock, user, stdscr, input_win, output_win,convdict):
     global screen_needs_update, a
     while True:
         data = ''
@@ -136,6 +140,8 @@ def receiveThread(sock, stdscr, input_win, output_win,convdict):
 
             if not rcv:
                 # Process pd from platform
+                fd = user.receive_msg(msg, msg_id)
+                msgId_fd_map[msg_id] = fd
                 input_win.move(0, 0)
                 senderDB=open(NICK+'.db','w')
                 json.dump(convdict,senderDB, sort_keys=True, indent=4)
@@ -168,7 +174,7 @@ def receiveThread(sock, stdscr, input_win, output_win,convdict):
         screen_needs_update = True
         lock.release()
 
-def chatThread(sock):
+def chatThread(sock, user):
     msgid = 1
     if os.path.isfile(NICK+'.db'):
         senderDB=open(NICK+'.db','r')
@@ -183,7 +189,7 @@ def chatThread(sock):
     msgid+=1
     textpad = _Textbox(input_win, insert_mode=True)
     textpad.stripspaces = True
-    t = threading.Thread(target=receiveThread, args=(sock, stdscr, input_win,output_win,convdict))
+    t = threading.Thread(target=receiveThread, args=(sock, user, stdscr, input_win,output_win,convdict))
     t.daemon = True
     t.start()
     try:
@@ -237,6 +243,11 @@ def chatThread(sock):
             data = data.replace('\n', '') + '\n'
             try:
                 # Generate Commmit and send to platform.
+                if 'Fwd' in data:
+                    user.forward_msg(data, msgid)
+                else:
+                    user.author_msg(data, msgid)
+
                 sock.send(a.encrypt(data) + 'EOP')
                 msgid+=1
             except socket.error:
@@ -265,6 +276,14 @@ if __name__ == '__main__':
     lock = threading.Lock()
     screen_needs_update = False
     HOST = ''
+
+    platform_ip = raw_input("Enter platform IP address: ")
+    platform_port = int(raw_input("Enter platform port number: "))
+    platform_pub_key_file = (raw_input("Enter platform public key file: "))
+
+    user = User(NICK, platform_ip, platform_port, platform_pub_key_file)
+    print(f"Connected to Source-Tracking Platform")
+   
     while True:
         try:
             PORT = raw_input('TCP port (1 for random choice, 50000 is default): ')
@@ -295,7 +314,7 @@ if __name__ == '__main__':
             s.bind((HOST, PORT))
             s.listen(1)
             conn, addr = s.accept()
-            chatThread(conn)
+            chatThread(conn, user)
 
     elif mode == '-c':
         rkey = raw_input('Enter %s\'s ratchet key: ' % OTHER_NICK)
@@ -308,11 +327,15 @@ if __name__ == '__main__':
                       mode=True,
                       other_ratchetKey=a2b(rkey))
 
+
+
+
         HOST = raw_input('Enter the server ip address: ')
         print 'Connecting to ' + HOST + '...'
         with socketcontext(socket.AF_INET, socket.SOCK_STREAM) as s:
             s.connect((HOST, PORT))
-            chatThread(s)
+            chatThread(s, user)
+        
 
     else:
         usage()

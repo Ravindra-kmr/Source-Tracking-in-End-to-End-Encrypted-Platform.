@@ -14,7 +14,7 @@ from cryptography.exceptions import InvalidSignature
 
 sys.path.append("/home/jude/Mtech/Sem_2/NS/Project/src/tree_linkable")
 
-from utils import check_commit
+from utils import check_commit, COMMIT_SIZE
 
 AES_KEY = secrets.token_bytes(32)
 CBC_IV = secrets.token_bytes(16)
@@ -112,6 +112,8 @@ def handle_user_scheme1(conn, addr, platform):
 
     data = conn.recv(2048)
     code, rest = data[:3], data[3:]
+
+    msgId_pd_map = {}
     
     if code == b'101':
         userid = rest[0]
@@ -128,24 +130,33 @@ def handle_user_scheme1(conn, addr, platform):
 
     while True:
 
-        data = conn.recv(2048)
+        data = conn.recv(1024)
 
         if not data:
-            print(f"{userid} at {addr} has disconnected.")
+            print "{0} at {1} has disconnected.".format(userid, addr)
+            # print(f"{userid} at {addr} has disconnected.")
             break
 
         code, rest = data[:3], data[3:]
 
         if code == b'102':
-            commit = rest[0]
+            commit = rest[0][:COMMIT_SIZE]
+            msg_id = rest[0][COMMIT_SIZE:]
+
             pd = platform.generate_pd(commit, userid)
-            pd = pickle.dumps(pd)
-            msg = b'103' + pd
+            msgId_pd_map[msg_id] = pd
+        
+        elif code == b'103':
+            msg_id = rest
+            
+            sigma, src = msgId_pd_map[msg_id]
+            msg = b'104' + sigma + src 
             # Send to Receiver
             conn.sendall(msg)
 
         elif code == b'999':
-            print(f"Received Code 999: {rest}")
+            # print(f"Received Code 999: {rest}")
+            print "Received Code 999: {0}".format(rest)
         
         else:
             s = f"Expected code 101, Received {code.encode('ascii')}"
@@ -155,25 +166,29 @@ def handle_user_scheme1(conn, addr, platform):
 
 def main(port, file):
 
-    print("Starting Platform ...")
-    
+    # print("Starting Platform ...")
+    print "Starting Platform ..."
+
     platform = Platform_Scheme1(AES_KEY, CBC_IV, RSA_KEY_SIZE)
     
     HOST = ''                 
     
-    print("Press ctrl+c to exit...")
+    print "Press ctrl+c to exit..."
+    # print("Press ctrl+c to exit...")
     
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
         s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         s.bind((HOST, port))
         # socket_killer = GracefulSocketKiller(s)
-        print(f"Start listening on port: {port}")
+        print "Start listening on port: {0}".format(port)
+        # print(f"Start listening on port: {port}")
         # while not socket_killer.kill_now:
         while True:
             s.listen(2)
             conn, addr = s.accept()
 
-            print(f"Connected to {addr}")
+            print "Connected to {0}".format(addr)
+            # print(f"Connected to {addr}")
 
             t = threading.Thread(target=handle_user_scheme1, args=(conn, addr, platform))
             t.start()
