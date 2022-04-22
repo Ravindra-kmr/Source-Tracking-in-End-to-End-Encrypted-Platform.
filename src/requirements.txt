@@ -1,0 +1,6 @@
+cffi==1.15.0
+passlib==1.7.4
+pyaxo==0.8.2
+pycparser==2.21
+PyNaCl==1.4.0
+six==1.16.0

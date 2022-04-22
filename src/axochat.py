@@ -133,7 +133,9 @@ def receiveThread(sock, stdscr, input_win, output_win,convdict):
         data = ''
         while data[-3:] != 'EOP':
             rcv = sock.recv(1024)
+
             if not rcv:
+                # Process pd from platform
                 input_win.move(0, 0)
                 senderDB=open(NICK+'.db','w')
                 json.dump(convdict,senderDB, sort_keys=True, indent=4)
@@ -234,6 +236,7 @@ def chatThread(sock):
             screen_needs_update = True
             data = data.replace('\n', '') + '\n'
             try:
+                # Generate Commmit and send to platform.
                 sock.send(a.encrypt(data) + 'EOP')
                 msgid+=1
             except socket.error:
