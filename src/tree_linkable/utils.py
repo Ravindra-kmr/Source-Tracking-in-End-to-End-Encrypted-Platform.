@@ -12,7 +12,8 @@ R_SIZE = 32
 
 def check_commit(commit, m, r):
     hasher = hashes.Hash(hashes.SHA256())
-    digest = hasher.update(m + r).finalize()
+    hasher.update(m + r)
+    digest = hasher.finalize()
 
     return digest == commit
 
@@ -22,7 +23,8 @@ def make_commit(m):
     r = os.urandom(R_SIZE)
     hasher = hashes.Hash(hashes.SHA256())
 
-    commit = hasher.update(m + r).finalize()
+    hasher.update(m + r)
+    commit = hasher.finalize()
 
     return (commit, r)
 

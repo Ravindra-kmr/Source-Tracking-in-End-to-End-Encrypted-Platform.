@@ -24,7 +24,7 @@ class UserTreeLinkable():
         self.__class__.userid += 1
         self.id = self.__class__.userid
 
-        with open(plat_pub_key_file, 'wb') as f:
+        with open(plat_pub_key_file, 'rb') as f:
             self.platform_pub_key = serialization.load_pem_public_key(f.read())
         
         self.platform_soc = socket.socket(socket.AF_INET, socket.SOCK_STREAM)

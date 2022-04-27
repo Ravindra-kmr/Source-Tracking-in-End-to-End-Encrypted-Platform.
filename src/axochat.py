@@ -304,9 +304,12 @@ if __name__ == '__main__':
     screen_needs_update = False
     HOST = ''
 
-    platform_ip = raw_input("Enter platform IP address: ")
-    platform_port = int(raw_input("Enter platform port number: "))
-    platform_pub_key_file = (raw_input("Enter platform public key file: "))
+    # platform_ip = raw_input("Enter platform IP address: ")
+    platform_ip = ''
+    # platform_port = int(raw_input("Enter platform port number: "))
+    platform_port = 11111
+    # platform_pub_key_file = (raw_input("Enter platform public key file: "))
+    platform_pub_key_file = "/home/jude/Mtech/Sem_2/NS/Project/src/platform_pub_key.pem"
 
     user = UserTreeLinkable(NICK, platform_ip, platform_port, platform_pub_key_file)
     print "Connected to Source-Tracking Platform"

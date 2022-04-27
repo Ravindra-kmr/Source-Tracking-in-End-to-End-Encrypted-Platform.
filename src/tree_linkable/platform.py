@@ -15,12 +15,12 @@ from cryptography.exceptions import InvalidSignature
 
 sys.path.append("/home/jude/Mtech/Sem_2/NS/Project/src/tree_linkable")
 
-from utils import check_commit, COMMIT_SIZE, R_SIZE
+from utils import check_commit, COMMIT_SIZE, R_SIZE, make_commit, verify_sign
 
 # AES_KEY = secrets.token_bytes(32)
-# CBC_IV = secrets.token_bytes(16)
+# CTR_NONCE = secrets.token_bytes(16)
 AES_KEY = os.urandom(32)
-CBC_IV = os.urandom(16)
+CTR_NONCE = os.urandom(16)
 RSA_KEY_SIZE = 2048
 
 SIG_SIZE = 32
@@ -30,10 +30,10 @@ FD_SIZE = SIG_SIZE + SRC_SIZE + COMMIT_SIZE + R_SIZE
 
 class PlatformTreeLinkable():
     
-    def __init__(self, aes_key, cbc_iv, rsa_key_size):
+    def __init__(self, aes_key, ctr_nonce, rsa_key_size):
         
         # For encrypting source-id and metadata
-        self.cipher = Cipher(algorithms.AES(aes_key), modes.CBC(cbc_iv))
+        self.cipher = Cipher(algorithms.AES(aes_key), modes.CTR(ctr_nonce))
 
         # For signing encryption and commits
         self.private_key = rsa.generate_private_key(
@@ -67,10 +67,11 @@ class PlatformTreeLinkable():
         userid = base64.b64encode(pickle.dumps(userid))
         md = base64.b64encode(pickle.dumps(md))
         s = userid + b"|" + md
+        # print "Message being encrypted: {0}".format(s)
         src = encryptor.update(s) + encryptor.finalize()
 
         # Sign tag and commit
-        sigma = self.private_key(
+        sigma = self.private_key.sign(
                             commit + src,
                             padding.PSS(
                                 mgf=padding.MGF1(hashes.SHA256()),
@@ -124,7 +125,8 @@ def handle_user_scheme1(conn, addr, platform):
         platform.register_user(userid)
 
     else:
-        s = (f"Expected code 101, Received {code.encode('ascii')}: Failed to register user. Closing Connection")
+        # s = (f"Expected code 101, Received {code.encode('ascii')}: Failed to register user. Closing Connection")
+        s = ("Expected code 101, Received {0}: Failed to register user. Closing Connection".format(code.encode('ascii')))
         msg = b'999' + s.encode('ascii')
         conn.sendall(msg)
 
@@ -169,7 +171,8 @@ def handle_user_scheme1(conn, addr, platform):
             print "Received Code 999: {0}".format(rest)
         
         else:
-            s = f"Expected code 101, Received {code.encode('ascii')}"
+            # s = f"Expected code 101, Received {code.encode('ascii')}"
+            s = "Expected code 101, Received {}".format(code.encode('ascii'))
             msg = b'999' + s.encode('ascii')
             conn.sendall(msg)
 
@@ -179,29 +182,76 @@ def main(port, file):
     # print("Starting Platform ...")
     print "Starting Platform ..."
 
-    platform = PlatformTreeLinkable(AES_KEY, CBC_IV, RSA_KEY_SIZE)
+    platform = PlatformTreeLinkable(AES_KEY, CTR_NONCE, RSA_KEY_SIZE)
     
     HOST = ''                 
     
     print "Press ctrl+c to exit..."
     # print("Press ctrl+c to exit...")
     
-    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
-        s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-        s.bind((HOST, port))
-        # socket_killer = GracefulSocketKiller(s)
-        print "Start listening on port: {0}".format(port)
-        # print(f"Start listening on port: {port}")
-        # while not socket_killer.kill_now:
-        while True:
-            s.listen(2)
-            conn, addr = s.accept()
+    # with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+    s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+    s.bind((HOST, port))
+    # socket_killer = GracefulSocketKiller(s)
+    print "Start listening on port: {0}".format(port)
+    # print(f"Start listening on port: {port}")
+    # while not socket_killer.kill_now:
+    while True:
+        s.listen(2)
+        conn, addr = s.accept()
 
-            print "Connected to {0}".format(addr)
-            # print(f"Connected to {addr}")
+        print "Connected to {0}".format(addr)
+        # print(f"Connected to {addr}")
 
-            t = threading.Thread(target=handle_user_scheme1, args=(conn, addr, platform))
-            t.start()
+        t = threading.Thread(target=handle_user_scheme1, args=(conn, addr, platform))
+        t.start()
+
+
+class TestPlatform():
+
+    def __init__(self):
+        self.platform = PlatformTreeLinkable(AES_KEY, CTR_NONCE, RSA_KEY_SIZE)
+
+    def register_user(self):
+        userid = "jude"
+        self.platform.register_user(userid)
+        if userid in self.platform.users:
+            print "register_user succeeded"
+        else:
+            print "register_user failed"
+    
+    def generate_pd(self):
+        m = "hello jude"
+        commit, r = make_commit(m)
+
+        userid = "Ravi"
+        md=None
+        sigma, src = self.platform.generate_pd(commit, userid, md)
+        if verify_sign(self.platform.public_key, sigma, commit + src):
+        
+            print "generate_pd succeeded"
+        else:
+            print "generate_pd failed"
+
+
+    def report_msg(self):
+        m = "hello jude"
+        commit, r = make_commit(m)
+        userid = "Ravi"
+        md=None
+
+        sigma, src = self.platform.generate_pd(commit, userid, md)
+        fd = (sigma, src, commit, r)
+        
+        reported_userid, md = self.platform.report_msg(fd, m)
+
+        if reported_userid == userid:
+            print "report_msg succeeded"
+        else:
+            print "report_msg failed"
+
+        
 
 
 if __name__ == "__main__":
@@ -218,5 +268,12 @@ if __name__ == "__main__":
                         required=True)
 
     args = parser.parse_args()
+
+    print "Testing Platform ..."
+    test = TestPlatform()
+    test.register_user()
+    test.generate_pd()
+    test.report_msg()
+    print "Done"
 
     main(args.port, args.outfilename)
