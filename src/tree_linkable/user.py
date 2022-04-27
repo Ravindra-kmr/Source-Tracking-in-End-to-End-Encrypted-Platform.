@@ -14,7 +14,7 @@ BOT = os.urandom(SIG_SIZE + SRC_SIZE + COMMIT_SIZE + R_SIZE)
 # BOT = secrets.token_bytes(SIG_SIZE + SRC_SIZE + COMMIT_SIZE + R_SIZE)
 
 
-class User():
+class UserTreeLinkable():
 
     userid = 0
 

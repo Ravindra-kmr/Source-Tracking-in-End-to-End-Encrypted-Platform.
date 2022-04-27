@@ -28,7 +28,7 @@ SRC_SIZE = RSA_KEY_SIZE / 8
 
 FD_SIZE = SIG_SIZE + SRC_SIZE + COMMIT_SIZE + R_SIZE
 
-class Platform_Scheme1():
+class PlatformTreeLinkable():
     
     def __init__(self, aes_key, cbc_iv, rsa_key_size):
         
@@ -179,7 +179,7 @@ def main(port, file):
     # print("Starting Platform ...")
     print "Starting Platform ..."
 
-    platform = Platform_Scheme1(AES_KEY, CBC_IV, RSA_KEY_SIZE)
+    platform = PlatformTreeLinkable(AES_KEY, CBC_IV, RSA_KEY_SIZE)
     
     HOST = ''                 
     

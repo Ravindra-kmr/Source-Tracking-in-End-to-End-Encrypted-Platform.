@@ -1,17 +1,17 @@
 from platform import platform
-from tree_linkable.user import User
+from tree_linkable.user import UserTreeLinkable
 from tree_linkable.platform import Platform
 
 def main():
 
     # Setup
-    bob = User()
-    alice = User()
-    collin = User()
+    bob = UserTreeLinkable()
+    alice = UserTreeLinkable()
+    collin = UserTreeLinkable()
 
     platform = Platform()
 
-    # New User Registration
+    # New UserTreeLinkable Registration
     users = set()
     users.add(bob.userid)
     users.add(alice.userid)

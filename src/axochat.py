@@ -57,7 +57,7 @@ pwd = os.getcwd()
 print pwd
 sys.path.append(pwd)
 
-from tree_linkable.user import User
+from tree_linkable.user import UserTreeLinkable
 
 msgId_fd_map = {} 
 
@@ -308,7 +308,7 @@ if __name__ == '__main__':
     platform_port = int(raw_input("Enter platform port number: "))
     platform_pub_key_file = (raw_input("Enter platform public key file: "))
 
-    user = User(NICK, platform_ip, platform_port, platform_pub_key_file)
+    user = UserTreeLinkable(NICK, platform_ip, platform_port, platform_pub_key_file)
     print "Connected to Source-Tracking Platform"
    
     while True:
