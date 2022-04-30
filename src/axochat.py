@@ -160,12 +160,13 @@ def receiveThread(sock, user, stdscr, input_win, output_win,convdict):
         for data in data_list:
             if data != '':
                 msg = a.decrypt(data)
+                print 
                 conv_list = msg.split(':>',1)
                 sender=conv_list[0].strip()
                 conv_list=conv_list[1].split(':',1)
-                msgid=int(conv_list[0].strip())
+                msgid=conv_list[0].strip()
                 if 'Fwd:' in conv_list[1]:
-                    conv_list = (conv_list[1].split('Fwd:',1)).strip()
+                    conv_list = conv_list[1].split('Fwd:',1)
                 if sender not in convdict.keys():
                     convdict[sender] = {}
                 convdict[sender][msgid]=conv_list[1].strip()
@@ -210,6 +211,7 @@ def chatThread(sock, user):
                 closeWindows(stdscr)
                 sys.exit()
             if 'Fwd:' in data:
+                print convdict
                 data_list = data.split('Fwd:',1)
                 header = data_list[0]
                 data_list = data_list[1].split(':',1)
@@ -309,7 +311,7 @@ if __name__ == '__main__':
     # platform_port = int(raw_input("Enter platform port number: "))
     platform_port = 11111
     # platform_pub_key_file = (raw_input("Enter platform public key file: "))
-    platform_pub_key_file = "/home/jude/Mtech/Sem_2/NS/Project/src/platform_pub_key.pem"
+    platform_pub_key_file = "tree_linkable/platform_pub_key.pem"
 
     user = UserTreeLinkable(NICK, platform_ip, platform_port, platform_pub_key_file)
     print "Connected to Source-Tracking Platform"
