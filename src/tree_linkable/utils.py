@@ -9,6 +9,7 @@ from cryptography.exceptions import InvalidSignature
 COMMIT_SIZE = 32
 R_SIZE = 32
 
+log_file = open("out.txt", "w")
 
 def check_commit(commit, m, r):
     hasher = hashes.Hash(hashes.SHA256())
