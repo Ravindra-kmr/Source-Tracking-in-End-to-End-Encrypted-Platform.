@@ -248,8 +248,11 @@ def chatThread(sock, user):
                 fwdmsgID = data_list[1].strip()
                 report_unique_msgid = fwdauthor+fwdmsgID;
                 actualmsg = convdict[fwdauthor][fwdmsgID]
+                
+                # Calling report method
                 fd = msgId_fd_map[report_unique_msgid]
                 source_id = user.report(actualmsg, fd)
+                
                 print source_id
                 input_win.clear()
                 input_win.addstr(NICK+':> '+ str(msgid)+': ')
@@ -273,7 +276,8 @@ def chatThread(sock, user):
                 # Generate Commmit and send to platform.
                 unique_msgid = NICK+":"+str(msgid);
                 if 'Fwd:' in data:
-                    user.forward_msg(data, unique_msgid)
+                    fd = msgId_fd_map[unique_msgid]
+                    user.forward_msg((data, fd), unique_msgid)
                 else:
                     user.author_msg(data, unique_msgid)
 
