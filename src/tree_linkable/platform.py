@@ -15,7 +15,7 @@ from cryptography.exceptions import InvalidSignature
 
 sys.path.append("/home/jude/Mtech/Sem_2/NS/Project/src/tree_linkable")
 
-from utils import check_commit, COMMIT_SIZE, R_SIZE, make_commit, verify_sign
+from utils import check_commit, COMMIT_SIZE, R_SIZE, make_commit, verify_sign, log_file
 
 # AES_KEY = secrets.token_bytes(32)
 # CTR_NONCE = secrets.token_bytes(16)
@@ -56,7 +56,7 @@ class PlatformTreeLinkable():
 
 
     def register_user(self, user_id):
-        
+        print "registered user", user_id
         self.users.add(user_id)
 
 
@@ -64,9 +64,9 @@ class PlatformTreeLinkable():
 
         # Prepare tag
         encryptor = self.cipher.encryptor()
-        userid = base64.b64encode(pickle.dumps(userid))
+        userid_pkl = base64.b64encode(pickle.dumps(userid))
         md = base64.b64encode(pickle.dumps(md))
-        s = userid + b"|" + md
+        s = userid_pkl + b"|" + md
         # print "Message being encrypted: {0}".format(s)
         src = encryptor.update(s) + encryptor.finalize()
 
@@ -77,6 +77,8 @@ class PlatformTreeLinkable():
                                 mgf=padding.MGF1(hashes.SHA256()),
                                 salt_length=padding.PSS.MAX_LENGTH),
                             hashes.SHA256())
+
+        print "generated pd for ", userid
 
         return (sigma, src)
 
@@ -108,6 +110,8 @@ class PlatformTreeLinkable():
 
         userid = pickle.loads(base64.b64decode(pt[0]))
         md = pickle.loads(base64.b64decode(pt[1]))
+
+        print "reported user: ", userid
 
         return userid, md
 
@@ -144,6 +148,7 @@ def handle_user_scheme1(conn, addr, platform):
             break
 
         code, rest = data[:3], data[3:]
+        print "Received code ", code, "from user: ", userid 
 
         if code == b'102':
             commit = rest[0][:COMMIT_SIZE]
@@ -277,3 +282,5 @@ if __name__ == "__main__":
     print "Done"
 
     main(args.port, args.outfilename)
+
+    log_file.close()
