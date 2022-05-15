@@ -290,7 +290,8 @@ def chatThread(sock, user):
                 print "Unique Message ID", unique_msgid
                 sleep(3)
                 if 'Fwd:' in data:
-                    fd = msgId_fd_map[unique_msgid]
+                    # fwd_id = 
+                    # fd = msgId_fd_map[fwd_id]
                     data = user.forward_msg((data, fd), unique_msgid)
                     data = b2a(pickle.dumps(data))
                 else:
