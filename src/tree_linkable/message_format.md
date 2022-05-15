@@ -22,7 +22,7 @@
    3. Info: Sending commit.
    4. Msg-Size: Commit-Size + 3
 
-4. 103:
+4. Code 103:
    1. Sender:
       1. User.
    2. Receiver:

@@ -16,6 +16,8 @@ from getpass import getpass
 from binascii import a2b_base64 as a2b
 from binascii import b2a_base64 as b2a
 import os
+import pickle
+import base64
 
 """
 Standalone chat script using libsodium for encryption with the Axolotl
@@ -143,9 +145,9 @@ def receiveThread(sock, user, stdscr, input_win, output_win,convdict):
             rcv = sock.recv(1024)
 
             if not rcv:
-                # Process pd from platform
-                fd = user.receive_msg(msg, msg_id)
-                msgId_fd_map[msg_id] = fd
+                # print msg
+
+
                 input_win.move(0, 0)
                 senderDB=open(NICK+'.db','w')
                 json.dump(convdict,senderDB, sort_keys=True, indent=4)
@@ -160,11 +162,21 @@ def receiveThread(sock, user, stdscr, input_win, output_win,convdict):
         for data in data_list:
             if data != '':
                 msg = a.decrypt(data)
-                print 
-                conv_list = msg.split(':>',1)
+                   
+                msg = pickle.loads(a2b(msg))
+                m, _, _, _ = msg
+                
+                conv_list = m.split(':>',1)
                 sender=conv_list[0].strip()
                 conv_list=conv_list[1].split(':',1)
                 msgid=conv_list[0].strip()
+                
+                # Process pd from platform
+                unique_msgid = sender+ ":" + msgid
+                fd = user.receive_msg(msg, unique_msgid)
+                msgId_fd_map[unique_msgid] = fd
+                msg = m
+                
                 if 'Fwd:' in conv_list[1]:
                     conv_list = conv_list[1].split('Fwd:',1)
                 if sender not in convdict.keys():
@@ -274,13 +286,18 @@ def chatThread(sock, user):
             data = data.replace('\n', '') + '\n'
             try:
                 # Generate Commmit and send to platform.
-                unique_msgid = NICK+":"+str(msgid);
+                unique_msgid = NICK+":"+str(msgid - 1);
+                print "Unique Message ID", unique_msgid
+                sleep(3)
                 if 'Fwd:' in data:
                     fd = msgId_fd_map[unique_msgid]
-                    user.forward_msg((data, fd), unique_msgid)
+                    data = user.forward_msg((data, fd), unique_msgid)
+                    data = b2a(pickle.dumps(data))
                 else:
-                    user.author_msg(data, unique_msgid)
+                    data = user.author_msg(data, unique_msgid)
+                    data = b2a(pickle.dumps(data))
 
+                print(data)
                 sock.send(a.encrypt(data) + 'EOP')
                 msgid+=1
             except socket.error:
@@ -303,9 +320,17 @@ if __name__ == '__main__':
     except:
         usage()
 
-    NICK = raw_input('Enter your nick: ')
-    OTHER_NICK = raw_input('Enter the nick of the other party: ')
-    mkey = getpass('Enter the master key: ')
+    if mode == '-s':
+        NICK = "j"
+        OTHER_NICK = "r"
+    else:
+        NICK = "r"
+        OTHER_NICK = "j"
+
+    # NICK = raw_input('Enter your nick: ')
+    # OTHER_NICK = raw_input('Enter the nick of the other party: ')
+    # mkey = getpass('Enter the master key: ')
+    mkey = ""
     lock = threading.Lock()
     screen_needs_update = False
     HOST = ''
@@ -322,8 +347,9 @@ if __name__ == '__main__':
    
     while True:
         try:
-            PORT = raw_input('TCP port (1 for random choice, 50000 is default): ')
-            PORT = int(PORT)
+            # PORT = raw_input('TCP port (1 for random choice, 50000 is default): ')
+            # PORT = int(PORT)
+            PORT = 22222
             break
         except ValueError:
             PORT = 50000

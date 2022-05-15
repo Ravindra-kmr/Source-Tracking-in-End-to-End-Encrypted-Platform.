@@ -8,6 +8,10 @@ import sys
 # import secrets
 import os
 
+from threading import RLock
+
+lock = RLock()
+
 from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
 from cryptography.hazmat.primitives.asymmetric import rsa, padding
 from cryptography.hazmat.primitives import hashes, serialization
@@ -27,6 +31,8 @@ SIG_SIZE = 32
 SRC_SIZE = RSA_KEY_SIZE / 8
 
 FD_SIZE = SIG_SIZE + SRC_SIZE + COMMIT_SIZE + R_SIZE
+
+global_msgId_pd_map = {}
 
 class PlatformTreeLinkable():
     
@@ -121,8 +127,6 @@ def handle_user_scheme1(conn, addr, platform):
 
     data = conn.recv(2048)
     code, rest = data[:3], data[3:]
-
-    msgId_pd_map = {}
     
     if code == b'101':
         userid = rest[0]
@@ -148,19 +152,27 @@ def handle_user_scheme1(conn, addr, platform):
             break
 
         code, rest = data[:3], data[3:]
+        print "size of message ", len(rest)
         print "Received code ", code, "from user: ", userid 
+        print "msg :", rest
+        print "Id map", global_msgId_pd_map
 
+        # Sending Commit
         if code == b'102':
-            commit = rest[0][:COMMIT_SIZE]
-            msg_id = rest[0][COMMIT_SIZE:]
+            commit = rest[:COMMIT_SIZE]
+            msg_id = rest[COMMIT_SIZE:]
+
+            print "msg_id", msg_id
 
             pd = platform.generate_pd(commit, userid)
-            msgId_pd_map[msg_id] = pd
+            global_msgId_pd_map[msg_id] = pd
         
         elif code == b'103':
             msg_id = rest
             
-            sigma, src = msgId_pd_map[msg_id]
+            sigma, src = global_msgId_pd_map[msg_id]
+            del global_msgId_pd_map[msg_id]
+            
             msg = b'104' + sigma + src 
             # Send to Receiver
             conn.sendall(msg)
