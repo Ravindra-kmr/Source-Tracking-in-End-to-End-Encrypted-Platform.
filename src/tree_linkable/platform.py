@@ -27,10 +27,10 @@ AES_KEY = os.urandom(32)
 CTR_NONCE = os.urandom(16)
 RSA_KEY_SIZE = 2048
 
-SIG_SIZE = 32
-SRC_SIZE = RSA_KEY_SIZE / 8
+# SIG_SIZE = 32
+# SRC_SIZE = RSA_KEY_SIZE / 8
 
-FD_SIZE = SIG_SIZE + SRC_SIZE + COMMIT_SIZE + R_SIZE
+# FD_SIZE = SIG_SIZE + SRC_SIZE + COMMIT_SIZE + R_SIZE
 
 global_msgId_pd_map = {}
 
@@ -95,19 +95,22 @@ class PlatformTreeLinkable():
         if not check_commit(commit, m, r):
             return None
 
-        try:
-            self.public_key.verify(
-                        sigma,
-                        commit + src,
-                        padding.PSS(
-                            mgf=padding.MGF1(hashes.SHA256()),
-                            salt_length=padding.PSS.MAX_LENGTH
-                                    ),
-                        hashes.SHA256()
-                                ) 
-        except InvalidSignature:
+        # try:
+        #     self.public_key.verify(
+        #                 sigma,
+        #                 commit + src,
+        #                 padding.PSS(
+        #                     mgf=padding.MGF1(hashes.SHA256()),
+        #                     salt_length=padding.PSS.MAX_LENGTH
+        #                             ),
+        #                 hashes.SHA256()
+        #                         ) 
+        # except InvalidSignature:
+        #     return None
+        if not verify_sign(self.public_key, sigma, commit + src):
+            print "platform sign verification failed"
             return None
-
+        
         decryptor = self.cipher.decryptor()
 
         pt = decryptor.update(src) + decryptor.finalize()
@@ -129,7 +132,7 @@ def handle_user_scheme1(conn, addr, platform):
     code, rest = data[:3], data[3:]
     
     if code == b'101':
-        userid = rest[0]
+        userid = rest
         platform.register_user(userid)
 
     else:
@@ -144,10 +147,10 @@ def handle_user_scheme1(conn, addr, platform):
 
     while True:
 
-        data = conn.recv(1024)
+        data = conn.recv(4096)
 
         if not data:
-            print "{0} at {1} has disconnected.".format(userid, addr)
+            print "{0} at {1} has disconnected.\n".format(userid, addr)
             # print(f"{userid} at {addr} has disconnected.")
             break
 
@@ -165,22 +168,33 @@ def handle_user_scheme1(conn, addr, platform):
             print "msg_id", msg_id
 
             pd = platform.generate_pd(commit, userid)
-            global_msgId_pd_map[msg_id] = pd
+            with lock:
+                global_msgId_pd_map[msg_id] = pd
         
         elif code == b'103':
             msg_id = rest
             
-            sigma, src = global_msgId_pd_map[msg_id]
-            del global_msgId_pd_map[msg_id]
+            with lock:
+                sigma, src = global_msgId_pd_map[msg_id]
+                del global_msgId_pd_map[msg_id]
             
-            msg = b'104' + sigma + src 
+            sigma = base64.b64encode(sigma)
+            src = base64.b64encode(src)
+            msg = b'104' + sigma + "|" + src 
+            print "Response: ", msg
             # Send to Receiver
             conn.sendall(msg)
         
         elif code == b'105':
-            fd = rest[0][:]
-            source_id = platform.report_msg()
+            fd, m = rest.split("|")
+            fd = pickle.loads(base64.b64decode(fd))
+
+            print "Reporting FD: ", fd, ", message: ", m
+            source_id, md = platform.report_msg(fd, m)
             msg = b'106' + source_id
+            
+            print "Response: ", msg
+            
             conn.sendall(msg)
 
         elif code == b'999':
@@ -225,51 +239,6 @@ def main(port, file):
         t.start()
 
 
-class TestPlatform():
-
-    def __init__(self):
-        self.platform = PlatformTreeLinkable(AES_KEY, CTR_NONCE, RSA_KEY_SIZE)
-
-    def register_user(self):
-        userid = "jude"
-        self.platform.register_user(userid)
-        if userid in self.platform.users:
-            print "register_user succeeded"
-        else:
-            print "register_user failed"
-    
-    def generate_pd(self):
-        m = "hello jude"
-        commit, r = make_commit(m)
-
-        userid = "Ravi"
-        md=None
-        sigma, src = self.platform.generate_pd(commit, userid, md)
-        if verify_sign(self.platform.public_key, sigma, commit + src):
-        
-            print "generate_pd succeeded"
-        else:
-            print "generate_pd failed"
-
-
-    def report_msg(self):
-        m = "hello jude"
-        commit, r = make_commit(m)
-        userid = "Ravi"
-        md=None
-
-        sigma, src = self.platform.generate_pd(commit, userid, md)
-        fd = (sigma, src, commit, r)
-        
-        reported_userid, md = self.platform.report_msg(fd, m)
-
-        if reported_userid == userid:
-            print "report_msg succeeded"
-        else:
-            print "report_msg failed"
-
-        
-
 
 if __name__ == "__main__":
 
@@ -285,13 +254,6 @@ if __name__ == "__main__":
                         required=True)
 
     args = parser.parse_args()
-
-    print "Testing Platform ..."
-    test = TestPlatform()
-    test.register_user()
-    test.generate_pd()
-    test.report_msg()
-    print "Done"
 
     main(args.port, args.outfilename)
 
