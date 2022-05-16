@@ -86,6 +86,7 @@ class UserTreeLinkable():
             print "platform sign verification failed"
             return None
         
+        # Received a new message
         if fd == BOT:
             if not check_commit(commit, m, r):
                 print "commit check under bot failed"
@@ -94,17 +95,19 @@ class UserTreeLinkable():
             fd = (sigma, src, commit, r)
 
             return fd
+
+        # Received a forwarded message
         else:
             sigma_fwd, src_fwd, commit_fwd, r_fwd = fd
 
             # verify commit of forwarder
             if not check_commit(commit, BOT, r):
-                print "forwaders commit check failed"
+                print "forwarder's commit check failed"
                 return None
             
             # verify commit of author
             if not check_commit(commit_fwd, m, r_fwd):
-                print "original authors commit check failed"
+                print "original author's commit check failed"
                 return None
             
             # verify sign of platform on commit of author.

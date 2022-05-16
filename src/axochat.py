@@ -61,7 +61,7 @@ sys.path.append(pwd)
 
 from tree_linkable.user import UserTreeLinkable
 
-msgId_fd_map = {} 
+
 
 @contextmanager
 def socketcontext(*args, **kwargs):
@@ -152,30 +152,41 @@ def receiveThread(sock, user, stdscr, input_win, output_win,convdict):
                 senderDB=open(NICK+'.db','w')
                 json.dump(convdict,senderDB, sort_keys=True, indent=4)
                 senderDB.close()
+                pickle.dump(msgId_fd_map, fd_file)
                 input_win.addstr('Disconnected - Ctrl-C to exit!')
                 input_win.refresh()
                 sys.exit()
             data = data + rcv
         data_list = data.split('EOP')
+        # data_list[0] = data_list[0].strip()
         lock.acquire()
         (cursory, cursorx) = input_win.getyx()
         for data in data_list:
             if data != '':
                 msg = a.decrypt(data)
                    
-                msg = pickle.loads(a2b(msg))
-                m, _, _, _ = msg
-                
-                conv_list = m.split(':>',1)
+                data, msg = pickle.loads(a2b(msg))
+                # print "\nreceived msg ", msg, "\n"
+                # sleep(2)
+
+                conv_list = data.split(':>',1)
                 sender=conv_list[0].strip()
                 conv_list=conv_list[1].split(':',1)
                 msgid=conv_list[0].strip()
                 
-                # Process pd from platform
+                # Get pd from platform
                 unique_msgid = sender+ ":" + msgid
+                if "Fwd:" in conv_list[1]:
+                    m = conv_list[1].split(':',1)
+                    m = m[1].strip()
+                    msg = (m, msg[1], msg[2], msg[3])
+                    # print "message forwarded, ", msg
+                
                 fd = user.receive_msg(msg, unique_msgid)
                 msgId_fd_map[unique_msgid] = fd
-                msg = m
+                # print "\nmsg_fd_map: ", msgId_fd_map, "\n"
+                # sleep(3)
+                msg = data
                 
                 if 'Fwd:' in conv_list[1]:
                     conv_list = conv_list[1].split('Fwd:',1)
@@ -194,6 +205,7 @@ def receiveThread(sock, user, stdscr, input_win, output_win,convdict):
         lock.release()
 
 def chatThread(sock, user):
+    fwd_messageids = ""
     msgid = 1
     unique_msgid = ''
     if os.path.isfile(NICK+'.db'):
@@ -221,9 +233,10 @@ def chatThread(sock, user):
                 json.dump(convdict,senderDB, sort_keys=True, indent=4)
                 senderDB.close()
                 closeWindows(stdscr)
+                pickle.dump(msgId_fd_map, fd_file)
                 sys.exit()
             if 'Fwd:' in data:
-                print convdict
+                # print convdict
                 data_list = data.split('Fwd:',1)
                 header = data_list[0]
                 data_list = data_list[1].split(':',1)
@@ -231,6 +244,7 @@ def chatThread(sock, user):
                 msgtosendID = data_list[1].strip()
                 if originalauthor in convdict.keys():
                     if msgtosendID in convdict[originalauthor].keys():
+                        fwd_messageids = originalauthor + ":" + msgtosendID
                         data = header + 'Fwd: '+str(convdict[originalauthor][msgtosendID])
                     else:
                         input_win.clear()
@@ -258,14 +272,21 @@ def chatThread(sock, user):
                 data_list = data_list[1].split(':',1)
                 fwdauthor = data_list[0].strip()
                 fwdmsgID = data_list[1].strip()
-                report_unique_msgid = fwdauthor+fwdmsgID;
+                report_unique_msgid = fwdauthor+ ":" + fwdmsgID;
                 actualmsg = convdict[fwdauthor][fwdmsgID]
                 
+                # print "msg_fd_map: ", msgId_fd_map
+                # sleep(2)
                 # Calling report method
-                fd = msgId_fd_map[report_unique_msgid]
+                try:
+                    fd = msgId_fd_map[report_unique_msgid]
+                except KeyError:
+                    print "Reporting Failed. Unknown Message ID!"
+                
                 source_id = user.report(actualmsg, fd)
                 
-                print source_id
+                print "\nThe original author is ", source_id
+                sleep(5)
                 input_win.clear()
                 input_win.addstr(NICK+':> '+ str(msgid)+': ')
                 input_win.move(0, len(NICK)+len(':> '+ str(msgid)+': '))
@@ -283,25 +304,32 @@ def chatThread(sock, user):
             input_win.cursyncup()
             input_win.noutrefresh()
             screen_needs_update = True
+            data = data.strip()
             data = data.replace('\n', '') + '\n'
             try:
                 # Generate Commmit and send to platform.
                 unique_msgid = NICK+":"+str(msgid - 1);
-                print "Unique Message ID", unique_msgid
-                sleep(3)
+                # print "Unique Message ID", unique_msgid
+                # sleep(3)
+                m_text = data.split(':>',1)
+                m_text = m_text[1].split(':',1)
+                m_text= m_text[1].strip()
                 if 'Fwd:' in data:
                     # fwd_id = 
-                    # fd = msgId_fd_map[fwd_id]
-                    data = user.forward_msg((data, fd), unique_msgid)
-                    data = b2a(pickle.dumps(data))
+                    fd = msgId_fd_map[fwd_messageids]
+                    msg = user.forward_msg(m_text, fd, unique_msgid)
                 else:
-                    data = user.author_msg(data, unique_msgid)
-                    data = b2a(pickle.dumps(data))
+                    msg = user.author_msg(m_text, unique_msgid)
 
-                print(data)
-                sock.send(a.encrypt(data) + 'EOP')
+                # print "Data to sent", data
+                # sleep(3)
+                data_to_send = b2a(pickle.dumps((data, msg)))
+                # data = data.strip()
+                sock.send(a.encrypt(data_to_send) + 'EOP')
                 msgid+=1
             except socket.error:
+                pickle.dump(msgId_fd_map, fd_file)
+                
                 input_win.addstr('Disconnected')
                 input_win.refresh()
                 closeWindows(stdscr)
@@ -321,20 +349,30 @@ if __name__ == '__main__':
     except:
         usage()
 
-    if mode == '-s':
-        NICK = "j"
-        OTHER_NICK = "r"
-    else:
-        NICK = "r"
-        OTHER_NICK = "j"
+    # if mode == '-s':
+    #     NICK = "j"
+    #     OTHER_NICK = "r"
+    # else:
+    #     NICK = "r"
+    #     OTHER_NICK = "j"
 
-    # NICK = raw_input('Enter your nick: ')
-    # OTHER_NICK = raw_input('Enter the nick of the other party: ')
-    # mkey = getpass('Enter the master key: ')
+    NICK = raw_input('Enter your nick: ')
+    OTHER_NICK = raw_input('Enter the nick of the other party: ')
+    mkey = getpass('Enter the master key: ')
     mkey = ""
     lock = threading.Lock()
     screen_needs_update = False
     HOST = ''
+
+    fd_file_name = "fd_file_{0}.pkl".format(NICK)
+    
+    try:
+        fd_file = open(fd_file_name, "r+")
+        msgId_fd_map = pickle.load(fd_file) 
+    
+    except IOError:
+        fd_file = open(fd_file_name, "w")
+        msgId_fd_map = {}
 
     # platform_ip = raw_input("Enter platform IP address: ")
     platform_ip = ''

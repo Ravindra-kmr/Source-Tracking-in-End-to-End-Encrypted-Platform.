@@ -270,9 +270,9 @@ class TestUser():
         print "Reported user: ", userid
 
         if success:
-            print "receive_message succeeded!"
+            print "report succeeded!"
         else:
-            print "receive_message failed!"
+            print "report failed!"
 
 if __name__ == "__main__":
 
@@ -283,6 +283,8 @@ if __name__ == "__main__":
     # test.report_msg()
     # print "Done"
 
+    # When testing users, comment out the test for platform
+    # and start a separate platform process
     print "Testing User ..."
     test = TestUser()
     test.author_msg()
