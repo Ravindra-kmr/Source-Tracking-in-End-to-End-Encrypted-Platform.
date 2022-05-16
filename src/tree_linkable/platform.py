@@ -17,7 +17,7 @@ from cryptography.hazmat.primitives.asymmetric import rsa, padding
 from cryptography.hazmat.primitives import hashes, serialization
 from cryptography.exceptions import InvalidSignature
 
-sys.path.append("/home/jude/Mtech/Sem_2/NS/Project/src/tree_linkable")
+# sys.path.append("/home/jude/Mtech/Sem_2/NS/Project/src/tree_linkable")
 
 from utils import check_commit, COMMIT_SIZE, R_SIZE, make_commit, verify_sign, log_file
 
@@ -157,8 +157,8 @@ def handle_user_scheme1(conn, addr, platform):
         code, rest = data[:3], data[3:]
         print "size of message ", len(rest)
         print "Received code ", code, "from user: ", userid 
-        print "msg :", rest
-        print "Id map", global_msgId_pd_map
+        # print "msg :", rest
+        # print "Id map", global_msgId_pd_map
 
         # Sending Commit
         if code == b'102':
@@ -181,7 +181,7 @@ def handle_user_scheme1(conn, addr, platform):
             sigma = base64.b64encode(sigma)
             src = base64.b64encode(src)
             msg = b'104' + sigma + "|" + src 
-            print "Response: ", msg
+            # print "Response: ", msg
             # Send to Receiver
             conn.sendall(msg)
         
@@ -189,11 +189,11 @@ def handle_user_scheme1(conn, addr, platform):
             fd, m = rest.split("|")
             fd = pickle.loads(base64.b64decode(fd))
 
-            print "Reporting FD: ", fd, ", message: ", m
+            # print "Reporting FD: ", fd, ", message: ", m
             source_id, md = platform.report_msg(fd, m)
             msg = b'106' + source_id
             
-            print "Response: ", msg
+            # print "Response: ", msg
             
             conn.sendall(msg)
 
@@ -245,12 +245,12 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
 
     parser.add_argument('-p', '--port',
-                        help='CA listens to this port',
+                        help='Platform listens to this port',
                         type=int,
                         required=True)
 
     parser.add_argument('-o', '--outfilename',
-                        help='CA writes diagnostics to this file',
+                        help='Platform writes diagnostics to this file',
                         required=True)
 
     args = parser.parse_args()

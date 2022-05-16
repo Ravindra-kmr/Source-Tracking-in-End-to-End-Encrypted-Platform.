@@ -18,7 +18,8 @@ from binascii import b2a_base64 as b2a
 import os
 import pickle
 import base64
-
+from Tkinter import *
+import ttk
 """
 Standalone chat script using libsodium for encryption with the Axolotl
 ratchet for key management.
@@ -149,7 +150,7 @@ def receiveThread(sock, user, stdscr, input_win, output_win,convdict):
 
 
                 input_win.move(0, 0)
-                senderDB=open(NICK+'.db','w')
+                senderDB=open("../dump_files/"+NICK+'.db','w')
                 json.dump(convdict,senderDB, sort_keys=True, indent=4)
                 senderDB.close()
                 pickle.dump(msgId_fd_map, fd_file)
@@ -203,13 +204,34 @@ def receiveThread(sock, user, stdscr, input_win, output_win,convdict):
         sleep(0.01) # write time for axo db
         screen_needs_update = True
         lock.release()
+def ReportGUI(detail):
+    Window = Tk()
+    Window.withdraw()
+    login = Toplevel()
+    login.title("Report Information")
+    login.resizable(width = True,
+                         height = True)
+    login.configure(width = 400,
+                         height = 200)
+    pls = Label(login,
+                   text = detail,
+                   justify = CENTER,
+                   font = "Helvetica 14 bold")
+                
+    pls.place(relheight = 0.5,
+                   relx = 0.05,
+                   rely = 0.05)
+    # print "\nThe original author is ", source_id
+    # sleep(5)
+    Window.mainloop()
+    sleep(60)
 
 def chatThread(sock, user):
     fwd_messageids = ""
     msgid = 1
     unique_msgid = ''
-    if os.path.isfile(NICK+'.db'):
-        senderDB=open(NICK+'.db','r')
+    if os.path.isfile("../dump_files/"+NICK+'.db'):
+        senderDB=open("../dump_files/"+NICK+'.db','r')
         convdict = json.load(senderDB)
         senderDB.close()
         convdict[OTHER_NICK] = {}
@@ -228,8 +250,21 @@ def chatThread(sock, user):
         while True:
             lock.acquire()
             data = textpad.edit(validator)
+            # temp_data = data.split(':',2)
+            # temp_data[2] = temp_data[2].replace('\n', '')
+            # temp_data[2] = temp_data[2].strip()
+            # if temp_data[2] is '':
+            #     input_win.clear()
+            #     input_win.addstr(NICK+':> '+ str(msgid)+': ')
+            #     input_win.move(0, len(NICK)+len(':> '+ str(msgid)+': '))
+            #     input_win.cursyncup()
+            #     input_win.noutrefresh()
+            #     screen_needs_update = True
+            #     sleep(0.01) # write time for axo db
+            #     lock.release()
+            #     continue;
             if (NICK+':>' in data) and ('.quit' in data):
-                senderDB=open(NICK+'.db','w')
+                senderDB=open("../dump_files/"+NICK+'.db','w')
                 json.dump(convdict,senderDB, sort_keys=True, indent=4)
                 senderDB.close()
                 closeWindows(stdscr)
@@ -273,19 +308,32 @@ def chatThread(sock, user):
                 fwdauthor = data_list[0].strip()
                 fwdmsgID = data_list[1].strip()
                 report_unique_msgid = fwdauthor+ ":" + fwdmsgID;
-                actualmsg = convdict[fwdauthor][fwdmsgID]
                 
                 # print "msg_fd_map: ", msgId_fd_map
                 # sleep(2)
                 # Calling report method
+                
+                detail = ""
                 try:
+                    actualmsg = convdict[fwdauthor][fwdmsgID]
                     fd = msgId_fd_map[report_unique_msgid]
+                    source_id = user.report(actualmsg, fd)
+                    detail = "The original author is: " + source_id
                 except KeyError:
-                    print "Reporting Failed. Unknown Message ID!"
+                    detail = "Reporting Failed. Unknown Message ID!"
+                    # print "Reporting Failed. Unknown Message ID!"
+                   #  pls = Label(login,
+                   # text = "Reporting Failed. Unknown Message ID!",
+                   # justify = CENTER,
+                   # font = "Helvetica 14 bold")
                 
-                source_id = user.report(actualmsg, fd)
+                   #  pls.place(relheight = 0.15,
+                   #                 relx = 0.3,
+                   #                 rely = 0.07)
                 
-                print "\nThe original author is ", source_id
+                t1 = threading.Thread(target=ReportGUI, args=(detail,))
+                t1.daemon = True
+                t1.start()
                 sleep(5)
                 input_win.clear()
                 input_win.addstr(NICK+':> '+ str(msgid)+': ')
@@ -305,7 +353,8 @@ def chatThread(sock, user):
             input_win.noutrefresh()
             screen_needs_update = True
             data = data.strip()
-            data = data.replace('\n', '') + '\n'
+            data = data.replace('\n', '')
+            data = data+'\n'
             try:
                 # Generate Commmit and send to platform.
                 unique_msgid = NICK+":"+str(msgid - 1);
@@ -334,10 +383,13 @@ def chatThread(sock, user):
                 input_win.refresh()
                 closeWindows(stdscr)
                 sys.exit()
+            except IndexError:
+                sys.exit()
             sleep(0.01) # write time for axo db
             lock.release()
     except KeyboardInterrupt:
         closeWindows(stdscr)
+
 
 def getPasswd(nick):
     return '1'
@@ -358,7 +410,7 @@ if __name__ == '__main__':
 
     NICK = raw_input('Enter your nick: ')
     OTHER_NICK = raw_input('Enter the nick of the other party: ')
-    mkey = getpass('Enter the master key: ')
+    # mkey = getpass('Enter the master key: ')
     mkey = ""
     lock = threading.Lock()
     screen_needs_update = False
@@ -367,39 +419,40 @@ if __name__ == '__main__':
     fd_file_name = "fd_file_{0}.pkl".format(NICK)
     
     try:
-        fd_file = open(fd_file_name, "r+")
+        fd_file = open("../dump_files/"+fd_file_name, "r+")
         msgId_fd_map = pickle.load(fd_file) 
     
     except IOError:
-        fd_file = open(fd_file_name, "w")
+        fd_file = open("../dump_files/"+fd_file_name, "w")
+        msgId_fd_map = {}
+    except EOFError:
         msgId_fd_map = {}
 
-    # platform_ip = raw_input("Enter platform IP address: ")
-    platform_ip = ''
-    # platform_port = int(raw_input("Enter platform port number: "))
-    platform_port = 11111
+    platform_ip = raw_input("Enter platform IP address: ")
+    # platform_ip = ''
+    platform_port = int(raw_input("Enter platform port number: "))
+    # platform_port = 11111
     # platform_pub_key_file = (raw_input("Enter platform public key file: "))
     platform_pub_key_file = "tree_linkable/platform_pub_key.pem"
 
     user = UserTreeLinkable(NICK, platform_ip, platform_port, platform_pub_key_file)
     print "Connected to Source-Tracking Platform"
-   
-    while True:
-        try:
-            # PORT = raw_input('TCP port (1 for random choice, 50000 is default): ')
-            # PORT = int(PORT)
-            PORT = 22222
-            break
-        except ValueError:
-            PORT = 50000
-            break
-    if PORT >= 1025 and PORT <= 65535:
-        pass
-    elif PORT == 1:
-        PORT = 1025 + randint(0, 64510)
-        print 'PORT is ' + str(PORT)
 
     if mode == '-s':
+        while True:
+            try:
+                PORT = raw_input('TCP port (1 for random choice, 50000 is default): ')
+                PORT = int(PORT)
+                # PORT = 22222
+                break
+            except ValueError:
+                PORT = 50000
+                break
+        if PORT >= 1025 and PORT <= 65535:
+            pass
+        elif PORT == 1:
+            PORT = 1025 + randint(0, 64510)
+            print 'PORT is ' + str(PORT)
         a = Axolotl(NICK,
                     dbname=OTHER_NICK+'.db',
                     dbpassphrase=None,
@@ -431,7 +484,13 @@ if __name__ == '__main__':
 
 
 
-        HOST = raw_input('Enter the server ip address: ')
+        HOST = raw_input("Enter the other client's ip address: ")
+        try:
+            PORT = raw_input("Enter other client's port number(50000 is default): ")
+            PORT = int(PORT)
+            # PORT = 22222
+        except ValueError:
+            PORT = 50000
         print 'Connecting to ' + HOST + '...'
         with socketcontext(socket.AF_INET, socket.SOCK_STREAM) as s:
             s.connect((HOST, PORT))
