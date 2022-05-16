@@ -1,4 +1,7 @@
 cffi==1.15.0
+cryptography==3.3.2
+enum34==1.1.10
+ipaddress==1.0.23
 passlib==1.7.4
 pyaxo==0.8.2
 pycparser==2.21
