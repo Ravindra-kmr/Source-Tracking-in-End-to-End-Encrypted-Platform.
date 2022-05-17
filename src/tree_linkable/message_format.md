@@ -38,7 +38,7 @@
       1. User.
    3. Info:
       1. pd
-   4. Msg-Size: SIG-SIZE + SRC_SIZE + 3
+   4. Msg-Size: Not bounded
 
 6. Code 105:
    1. Sender:

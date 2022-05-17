@@ -1,8 +1,5 @@
 {
-    "b": {
-        "1": "hello a", 
-        "2": "d is bad, donot talk to him"
-    }, 
+    "b": {}, 
     "c": {
         "1": "hello a"
     }
