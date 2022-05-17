@@ -23,8 +23,8 @@ The code is contained in the **src** folder.
    utilizing the ratchet encryption. The user part of the source-tracking scheme is
    used here.
 
-3. *<*>.pkl*: Auxiliary file for persisting fds across chat sessions.
-4. *<*>.db*: Auxiliary file for persisting chat messages across sessions.
+3. *<\*>.pkl*: Auxiliary file for persisting fds across chat sessions.
+4. *<\*>.db*: Auxiliary file for persisting chat messages across sessions.
 
 ## Usage
 
