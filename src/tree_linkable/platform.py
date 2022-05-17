@@ -208,7 +208,7 @@ def handle_user_scheme1(conn, addr, platform):
             conn.sendall(msg)
 
 
-def main(port, file):
+def main(port):
 
     # print("Starting Platform ...")
     print "Starting Platform ..."
@@ -249,12 +249,13 @@ if __name__ == "__main__":
                         type=int,
                         required=True)
 
-    parser.add_argument('-o', '--outfilename',
-                        help='Platform writes diagnostics to this file',
-                        required=True)
+    # parser.add_argument('-o', '--outfilename',
+    #                     help='Platform writes diagnostics to this file',
+    #                     required=True)
 
     args = parser.parse_args()
 
-    main(args.port, args.outfilename)
+    # main(args.port, args.outfilename)
+    main(args.port)
 
     log_file.close()
