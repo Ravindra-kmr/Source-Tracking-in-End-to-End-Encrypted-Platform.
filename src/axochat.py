@@ -369,13 +369,14 @@ def chatThread(sock, user):
                     msg = user.forward_msg(m_text, fd, unique_msgid)
                 else:
                     msg = user.author_msg(m_text, unique_msgid)
-
+			
                 # print "Data to sent", data
                 # sleep(3)
-                data_to_send = b2a(pickle.dumps((data, msg)))
-                # data = data.strip()
-                sock.send(a.encrypt(data_to_send) + 'EOP')
-                msgid+=1
+		if 'Report:' not in data:
+                    data_to_send = b2a(pickle.dumps((data, msg)))
+                    # data = data.strip()
+               	    sock.send(a.encrypt(data_to_send) + 'EOP')
+                    msgid+=1
             except socket.error:
                 pickle.dump(msgId_fd_map, fd_file)
                 
@@ -388,6 +389,11 @@ def chatThread(sock, user):
             sleep(0.01) # write time for axo db
             lock.release()
     except KeyboardInterrupt:
+	senderDB=open("../dump_files/"+NICK+'.db','w')
+        json.dump(convdict,senderDB, sort_keys=True, indent=4)
+        senderDB.close()
+        closeWindows(stdscr)
+        pickle.dump(msgId_fd_map, fd_file)
         closeWindows(stdscr)
 
 
